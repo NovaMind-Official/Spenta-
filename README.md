@@ -12,6 +12,8 @@
 ![i18n](https://img.shields.io/badge/i18n-EN%20%2F%20FA-E5B94E?style=flat-square)
 ![License](https://img.shields.io/badge/license-proprietary-lightgrey?style=flat-square)
 
+**Current status:** source code only, not yet deployed to a live URL. See "Deploy it" below to put it online.
+
 </div>
 
 ---
@@ -84,5 +86,5 @@ This is a **beta / demo build**. Everything you see works, but a few things are 
 ---
 
 <div align="center">
-<sub>Built with Claude · SPENTA © 2026</sub>
+<sub>SPENTA © 2026</sub>
 </div>
