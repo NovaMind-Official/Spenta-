@@ -15,10 +15,7 @@
 </head>
 <body>
 <div id="root"></div>
-
-<!-- Babel Standalone: transforms JSX in-browser, no build step needed -->
 <script src="https://unpkg.com/@babel/standalone@7.24.7/babel.min.js"></script>
-
 <script type="text/babel" data-type="module" data-presets="react">
 import React, { useState, useEffect, useMemo, useRef } from "https://esm.sh/react@18.3.1";
 import * as THREE from "https://esm.sh/three@0.160.0";
@@ -62,6 +59,61 @@ const CATS = {
   services:     { label: "Services",          desc: "Specialized professional services",                  icon: Wrench,    color: "#EAB308", model: "fixed" },
 };
 const CAT_LIST = Object.entries(CATS).map(([id, v]) => ({ id, ...v }));
+
+// Self-contained placeholder "photos" for seed listings — a simple abstract
+// icon + gradient rendered as inline SVG (data URI), so listings always have
+// a picture with zero network dependency (no external image host at all).
+const CAT_GLYPHS = {
+  realestate: '<path d="M -50 10 L 0 -35 L 50 10 L 50 55 L -50 55 Z"/><rect x="-15" y="15" width="30" height="40"/>',
+  vehicles: '<rect x="-55" y="-10" width="110" height="35" rx="14"/><path d="M -40 -10 L -25 -30 L 25 -30 L 40 -10"/><circle cx="-30" cy="28" r="12"/><circle cx="30" cy="28" r="12"/>',
+  motorcycles: '<circle cx="-38" cy="25" r="20"/><circle cx="38" cy="25" r="20"/><path d="M -38 25 L -10 -15 L 20 -15 M 10 -15 L 38 25 M -10 -15 L -20 -35 L -35 -35"/>',
+  jobs: '<rect x="-50" y="-10" width="100" height="65" rx="8"/><path d="M -20 -10 L -20 -25 Q -20 -35 -10 -35 L 10 -35 Q 20 -35 20 -25 L 20 -10"/><line x1="-50" y1="18" x2="50" y2="18"/>',
+  goods: '<path d="M -45 -20 L 0 -40 L 45 -20 L 45 30 L 0 50 L -45 30 Z"/><path d="M -45 -20 L 0 0 L 45 -20 M 0 0 L 0 50"/>',
+  services: '<path d="M 15 -35 A 22 22 0 1 0 35 -15 L 20 -30 L 25 -40 L 35 -35 L 40 -25 L 30 -20 Z"/><line x1="-5" y1="5" x2="-40" y2="40"/><line x1="2" y1="12" x2="-33" y2="47"/>',
+};
+function catImage(categoryId, seedText) {
+  const cat = CATS[categoryId] || CATS.goods;
+  const seed = hashId(String(seedText));
+  const angle = seed % 360;
+  const glyph = CAT_GLYPHS[categoryId] || CAT_GLYPHS.goods;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="560" viewBox="0 0 800 560">
+    <defs>
+      <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%" gradientTransform="rotate(${angle % 60}, 0.5, 0.5)">
+        <stop offset="0%" stop-color="${cat.color}" stop-opacity="0.16"/>
+        <stop offset="100%" stop-color="${cat.color}" stop-opacity="0.05"/>
+      </linearGradient>
+    </defs>
+    <rect width="800" height="560" fill="#F7F4EC"/>
+    <rect width="800" height="560" fill="url(#g)"/>
+    <g stroke="${cat.color}" stroke-width="1" opacity="0.14">
+      ${Array.from({ length: 6 }, (_, i) => `<line x1="${(i * 140) - 40}" y1="0" x2="${(i * 140) - 40 + 200}" y2="560"/>`).join("")}
+    </g>
+    <g transform="translate(400,270) scale(1.9)" fill="none" stroke="${cat.color}" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round" opacity="0.85">
+      ${glyph}
+    </g>
+    <text x="400" y="500" font-family="Georgia, serif" font-size="15" letter-spacing="4" fill="${cat.color}" fill-opacity="0.55" text-anchor="middle">SPENTA</text>
+  </svg>`;
+  return "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(svg);
+}
+function editorialImage(seedText) {
+  const seed = hashId(String(seedText));
+  const angle = seed % 360;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="900" height="600" viewBox="0 0 900 600">
+    <defs>
+      <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%" gradientTransform="rotate(${angle % 50}, 0.5, 0.5)">
+        <stop offset="0%" stop-color="${INK}" stop-opacity="0.92"/>
+        <stop offset="100%" stop-color="#1E2430" stop-opacity="0.92"/>
+      </linearGradient>
+    </defs>
+    <rect width="900" height="600" fill="url(#g)"/>
+    <g stroke="${GOLD}" stroke-width="1" opacity="0.18">
+      ${Array.from({ length: 5 }, (_, i) => `<circle cx="${150 + i * 170}" cy="300" r="${90 + (i % 2) * 40}"/>`).join("")}
+    </g>
+    <text x="450" y="320" font-family="Georgia, serif" font-weight="700" font-size="46" letter-spacing="3" fill="${GOLD}" fill-opacity="0.9" text-anchor="middle">SPENTA</text>
+    <text x="450" y="360" font-family="Georgia, serif" font-size="15" letter-spacing="6" fill="#F7F4EC" fill-opacity="0.5" text-anchor="middle">MAGAZINE</text>
+  </svg>`;
+  return "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(svg);
+}
 const catOf = (id) => ({ id, ...CATS[id] });
 
 // Demo-only allowlist: hides the admin panel entry from ordinary visitors.
@@ -520,8 +572,8 @@ const SERV_ROWS = [
 function buildRealestate() {
   return RE_ROWS.map((r, i) => ({
     id: "re" + i, category: "realestate", title: r[0], price: r[1], city: r[2], owner: sellerFor(i),
-    img: `https://picsum.photos/seed/re${i}/800/560`,
-    images: [`https://picsum.photos/seed/re${i}/800/560`, `https://picsum.photos/seed/re${i}b/800/560`, `https://picsum.photos/seed/re${i}c/800/560`],
+    img: catImage("realestate", "re" + i),
+    images: [catImage("realestate", "re" + i), catImage("realestate", "re" + i + "b"), catImage("realestate", "re" + i + "c")],
     description: `${r[0]} in ${r[2]}, ready for an in-person viewing and direct negotiation with the seller.`,
     fields: { dealType: r[3], area: r[4], rooms: r[5] }, stamp: r[6], status: "approved", createdAt: Date.now() - i * 3600000, reviews: r[7],
   }));
@@ -529,8 +581,8 @@ function buildRealestate() {
 function buildVehicles() {
   return VEH_ROWS.map((r, i) => ({
     id: "veh" + i, category: "vehicles", title: r[0], price: r[1], city: r[2], owner: sellerFor(i + 3),
-    img: `https://picsum.photos/seed/veh${i}/800/560`,
-    images: [`https://picsum.photos/seed/veh${i}/800/560`, `https://picsum.photos/seed/veh${i}b/800/560`, `https://picsum.photos/seed/veh${i}c/800/560`],
+    img: catImage("vehicles", "veh" + i),
+    images: [catImage("vehicles", "veh" + i), catImage("vehicles", "veh" + i + "b"), catImage("vehicles", "veh" + i + "c")],
     description: `${r[3]} Model ${r[4]}, mileage ${r[5].toLocaleString("en-US")} km, insured, full documentation.`,
     fields: { brand: r[3], year: r[4], mileage: r[5] }, stamp: r[6], status: "approved", createdAt: Date.now() - i * 2900000, reviews: r[7],
   }));
@@ -538,8 +590,8 @@ function buildVehicles() {
 function buildMoto() {
   return MOTO_ROWS.map((r, i) => ({
     id: "moto" + i, category: "motorcycles", title: r[0], price: r[1], city: r[2], owner: sellerFor(i + 6),
-    img: `https://picsum.photos/seed/moto${i}/800/560`,
-    images: [`https://picsum.photos/seed/moto${i}/800/560`, `https://picsum.photos/seed/moto${i}b/800/560`, `https://picsum.photos/seed/moto${i}c/800/560`],
+    img: catImage("motorcycles", "moto" + i),
+    images: [catImage("motorcycles", "moto" + i), catImage("motorcycles", "moto" + i + "b"), catImage("motorcycles", "moto" + i + "c")],
     description: `${r[3]} Model ${r[4]}, regularly serviced and ready for delivery.`,
     fields: { brand: r[3], year: r[4], cc: r[5] }, stamp: r[6], status: "approved", createdAt: Date.now() - i * 2600000, reviews: r[7],
   }));
@@ -547,8 +599,8 @@ function buildMoto() {
 function buildJobs() {
   return JOB_ROWS.map((r, i) => ({
     id: "job" + i, category: "jobs", title: r[0], price: r[1], city: r[2], owner: sellerFor(i + 9),
-    img: `https://picsum.photos/seed/job${i}/800/560`,
-    images: [`https://picsum.photos/seed/job${i}/800/560`, `https://picsum.photos/seed/job${i}b/800/560`],
+    img: catImage("jobs", "job" + i),
+    images: [catImage("jobs", "job" + i), catImage("jobs", "job" + i + "b")],
     description: `Job opportunity ${r[3]} in ${r[2]}, work type ${r[4]} with competitive pay.`,
     fields: { role: r[3], workType: r[4], salary: r[5] }, stamp: r[6], status: "approved", createdAt: Date.now() - i * 2300000, reviews: r[7],
   }));
@@ -556,8 +608,8 @@ function buildJobs() {
 function buildGoods() {
   return GOODS_ROWS.map((r, i) => ({
     id: "goods" + i, category: "goods", title: r[0], price: r[1], city: r[2], owner: sellerFor(i + 12),
-    img: `https://picsum.photos/seed/goods${i}/800/560`,
-    images: [`https://picsum.photos/seed/goods${i}/800/560`, `https://picsum.photos/seed/goods${i}b/800/560`, `https://picsum.photos/seed/goods${i}c/800/560`],
+    img: catImage("goods", "goods" + i),
+    images: [catImage("goods", "goods" + i), catImage("goods", "goods" + i + "b"), catImage("goods", "goods" + i + "c")],
     description: `Condition ${r[3]}, brand ${r[4]}, ready for shipping or in-person pickup in ${r[2]}.`,
     fields: { condition: r[3], brand: r[4] }, stamp: r[5], status: "approved", createdAt: Date.now() - i * 2000000, reviews: r[6],
   }));
@@ -565,8 +617,8 @@ function buildGoods() {
 function buildServices() {
   return SERV_ROWS.map((r, i) => ({
     id: "serv" + i, category: "services", title: r[0], price: r[1], city: r[2], owner: sellerFor(i + 15),
-    img: `https://picsum.photos/seed/serv${i}/800/560`,
-    images: [`https://picsum.photos/seed/serv${i}/800/560`, `https://picsum.photos/seed/serv${i}b/800/560`],
+    img: catImage("services", "serv" + i),
+    images: [catImage("services", "serv" + i), catImage("services", "serv" + i + "b")],
     description: `${r[3]} with ${r[4]} years of experience, providing services in ${r[2]} and surrounding areas.`,
     fields: { serviceType: r[3], experience: r[4] }, stamp: r[5], status: "approved", createdAt: Date.now() - i * 1700000, reviews: r[6],
   }));
@@ -760,8 +812,7 @@ function Reveal({ children, className, delay = 0 }) {
       className={className}
       style={{
         opacity: visible ? 1 : 0,
-        transform: visible ? "translateY(0)" : "translateY(22px)",
-        transition: `opacity .6s ease ${delay}ms, transform .6s ease ${delay}ms`,
+        transition: `opacity .5s ease ${delay}ms`,
       }}
     >
       {children}
@@ -1714,8 +1765,8 @@ function GlobeShowcase({ listings, onSelectCity }) {
         </div>
       </div>
 
-      <div className="relative">
-          <div ref={mountRef} style={{ width: 340, height: 340 }} />
+      <div className="relative max-w-full">
+          <div ref={mountRef} style={{ width: 340, height: 340, maxWidth: "90vw", margin: "0 auto" }} />
           {hoverCity && !selected && (
             <div className="absolute top-3 left-1/2 -translate-x-1/2 text-xs font-bold px-3 py-1.5 rounded-full pointer-events-none" style={{ background: INK, color: "#F7F4EC" }}>
               {hoverCity}
@@ -1724,7 +1775,7 @@ function GlobeShowcase({ listings, onSelectCity }) {
           <div
             ref={popupElRef}
             className="absolute top-0 start-0 z-20 transition-opacity duration-150"
-            style={{ opacity: 0, pointerEvents: "none", width: 200 }}
+            style={{ opacity: 0, pointerEvents: "none", width: "min(200px, 88vw)" }}
           >
             {selected && (
               <div className="rounded-xl p-3.5 relative" style={{ background: "#181C24", border: `1px solid rgba(229,185,78,.35)`, boxShadow: "0 16px 32px -10px rgba(0,0,0,.6)" }}>
@@ -2103,10 +2154,48 @@ function SideDrawer({ open, onClose, setView, user, selectedCity, onSelectCity }
   );
 }
 
+function CategoriesMegaMenu({ setView }) {
+  const [open, setOpen] = useState(false);
+  const closeTimer = useRef(null);
+  const onEnter = () => { clearTimeout(closeTimer.current); setOpen(true); };
+  const onLeave = () => { closeTimer.current = setTimeout(() => setOpen(false), 150); };
+  return (
+    <div className="hidden lg:block relative shrink-0" onMouseEnter={onEnter} onMouseLeave={onLeave}>
+      <button className="flex items-center gap-1.5 text-sm font-bold px-3.5 py-2.5 rounded-full transition" style={open ? { background: SURFACE, color: "#14181F" } : { color: "#585C66" }}>
+        Categories <ChevronDown size={13} style={{ transform: open ? "rotate(180deg)" : "none", transition: "transform .2s" }} />
+      </button>
+      {open && (
+        <div className="absolute top-full start-0 mt-1 notched z-50" style={{ width: "min(620px, calc(100vw - 32px))", background: CARD, border: `1px solid ${BORDER}`, boxShadow: "0 24px 48px -16px rgba(20,24,31,.25)" }}>
+          <div className="grid grid-cols-2 p-2">
+            {NAV_GROUPS.map((g, i) => (
+              <div key={g.label} className="p-3.5" style={{ borderInlineEnd: i % 2 === 0 ? `1px solid ${BORDER_SOFT}` : "none", borderBottom: i < NAV_GROUPS.length - 2 ? `1px solid ${BORDER_SOFT}` : "none" }}>
+                <button onClick={() => { setView({ name: "category", category: g.subs[0]?.cat }); setOpen(false); }} className="flex items-center gap-2 mb-2.5 text-start w-full">
+                  <span className="text-[10px] font-bold" style={{ color: LIME, fontFamily: "JetBrains Mono" }}>{ROMAN[i]}</span>
+                  <span className="text-sm font-bold" style={{ color: "#14181F", fontFamily: SERIF }}>{g.label}</span>
+                </button>
+                <div className="flex flex-wrap gap-1.5">
+                  {g.subs.slice(0, 5).map((s) => (
+                    <button key={s.label} onClick={() => { setView({ name: "category", category: s.cat }); setOpen(false); }} className="text-[11px] font-medium px-2.5 py-1 rounded-full transition" style={{ background: SURFACE, color: "#585C66" }}
+                      onMouseEnter={(e) => { e.currentTarget.style.background = `${LIME}18`; e.currentTarget.style.color = LIME; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = SURFACE; e.currentTarget.style.color = "#585C66"; }}>
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Header({ setView, user, query, setQuery, wishlistCount, menuOpen, onMenuClick, newMatchesCount, themeMode, onToggleTheme, savedSearches = [], recomputeMatches, onOpenSearch, listings = [], onOpenPalette }) {
   const { t } = useLang();
   const [notifOpen, setNotifOpen] = useState(false);
   const [suggestOpen, setSuggestOpen] = useState(false);
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const notifRef = useRef(null);
   useEffect(() => {
     const onClick = (e) => { if (notifRef.current && !notifRef.current.contains(e.target)) setNotifOpen(false); };
@@ -2116,22 +2205,52 @@ function Header({ setView, user, query, setQuery, wishlistCount, menuOpen, onMen
   const suggestions = useMemo(() => {
     if (!query.trim() || query.trim().length < 2) return [];
     const q = query.trim().toLowerCase();
-    const titleMatches = listings.filter((l) => l.title.toLowerCase().includes(q)).slice(0, 5);
+    const titleMatches = listings.filter((l) => l.title.toLowerCase().includes(q)).slice(0, 6);
     const catMatches = CAT_LIST.filter((c) => catLabel(c, "en").toLowerCase().includes(q)).slice(0, 2);
     return { titleMatches, catMatches };
   }, [query, listings]);
+  const { fmt } = useLang();
+  const hasSuggestions = suggestions.titleMatches?.length > 0 || suggestions.catMatches?.length > 0;
   const runSearch = () => {
+    setMobileSearchOpen(false);
     setView({ name: "home" });
     setTimeout(() => {
       const el = document.getElementById("results");
       if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 60);
   };
+  const suggestionList = (onPick) => (
+    <>
+      {suggestions.catMatches?.map((c) => (
+        <button key={c.id} onMouseDown={() => { setView({ name: "category", category: c.id }); onPick(); }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-start hover:bg-black/[0.03]">
+          <c.icon size={14} style={{ color: c.color }} />
+          <span className="text-sm text-[#14181F] font-bold">{catLabel(c, "en")}</span>
+          <span className="text-[10px] font-bold ms-auto" style={{ color: "#8B8E99" }}>Category</span>
+        </button>
+      ))}
+      {suggestions.titleMatches?.map((l) => (
+        <button key={l.id} onMouseDown={() => { setView({ name: "detail", ad: l }); onPick(); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-start hover:bg-black/[0.03]" style={{ borderTop: `1px solid ${BORDER_SOFT}` }}>
+          <SmartImg src={l.img} alt="" className="w-10 h-10 rounded-md object-cover shrink-0" />
+          <div className="min-w-0 flex-1">
+            <div className="text-sm text-[#14181F] truncate">{l.title}</div>
+            <div className="text-[11px] text-[#8B8E99]">{l.city}</div>
+          </div>
+          <span className="text-xs font-bold shrink-0" style={{ color: LIME, fontFamily: SERIF }}>{l.price ? fmt(l.price) : "—"}</span>
+        </button>
+      ))}
+      {query.trim().length >= 2 && (
+        <button onMouseDown={() => runSearch()} className="w-full flex items-center justify-center gap-1.5 px-4 py-3 text-xs font-bold" style={{ borderTop: `1px solid ${BORDER_SOFT}`, color: LIME }}>
+          <Search size={12} /> See all results for "{query}"
+        </button>
+      )}
+    </>
+  );
   return (
     <header className="sticky top-0 z-40 backdrop-blur" style={{ background: `${PAGE_BG}EE`, borderBottom: `1px solid ${BORDER}` }}>
       <div className="max-w-6xl mx-auto px-4 py-3.5 flex items-center gap-4">
         <MenuButton open={menuOpen} onClick={onMenuClick} />
         <button onClick={() => setView({ name: "home" })}><Logo beta /></button>
+        <CategoriesMegaMenu setView={setView} />
         <div className="flex-1 hidden md:block relative max-w-md mx-auto">
           <div className="flex items-center gap-2 rounded-full px-4 py-2.5" style={{ background: SURFACE, border: `1px solid ${BORDER}` }}>
             <button onClick={runSearch} aria-label="Search" className="shrink-0"><Search size={16} className="text-[#585C66]" /></button>
@@ -2147,24 +2266,15 @@ function Header({ setView, user, query, setQuery, wishlistCount, menuOpen, onMen
             />
             <button onClick={onOpenPalette} className="hidden lg:flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0" style={{ background: CARD, border: `1px solid ${BORDER}`, color: "#8B8E99", fontFamily: "JetBrains Mono" }}>⌘K</button>
           </div>
-          {suggestOpen && query.trim().length >= 2 && (suggestions.titleMatches?.length > 0 || suggestions.catMatches?.length > 0) && (
+          {suggestOpen && hasSuggestions && (
             <div className="absolute top-full inset-x-0 mt-2 rounded-2xl overflow-hidden z-50" style={{ background: CARD, border: `1px solid ${BORDER}`, boxShadow: "0 20px 40px -16px rgba(20,24,31,.25)" }}>
-              {suggestions.catMatches?.map((c) => (
-                <button key={c.id} onMouseDown={() => { setView({ name: "category", category: c.id }); setSuggestOpen(false); }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-start hover:bg-black/[0.03]">
-                  <c.icon size={14} style={{ color: c.color }} />
-                  <span className="text-sm text-[#14181F] font-bold">{catLabel(c, "en")}</span>
-                  <span className="text-[10px] font-bold ms-auto" style={{ color: "#8B8E99" }}>Category</span>
-                </button>
-              ))}
-              {suggestions.titleMatches?.map((l) => (
-                <button key={l.id} onMouseDown={() => { setView({ name: "detail", ad: l }); setSuggestOpen(false); }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-start hover:bg-black/[0.03]" style={{ borderTop: `1px solid ${BORDER_SOFT}` }}>
-                  <SmartImg src={l.img} alt="" className="w-8 h-8 rounded-md object-cover shrink-0" />
-                  <span className="text-sm text-[#14181F] truncate">{l.title}</span>
-                </button>
-              ))}
+              {suggestionList(() => setSuggestOpen(false))}
             </div>
           )}
         </div>
+        <button onClick={() => setMobileSearchOpen(true)} aria-label="Search" className="sm:hidden flex items-center justify-center w-10 h-10 rounded-full shrink-0 ms-auto" style={{ background: SURFACE, border: `1px solid ${BORDER}` }}>
+          <Search size={16} className="text-[#585C66]" />
+        </button>
         <button onClick={onToggleTheme} title={themeMode === "dark" ? "Light mode" : "Dark mode"} className="hidden sm:flex items-center justify-center w-10 h-10 rounded-full shrink-0" style={{ background: SURFACE, border: `1px solid ${BORDER}` }}>
           {themeMode === "dark" ? <Sun size={16} color={LIME} /> : <Moon size={16} color="#585C66" />}
         </button>
@@ -2230,6 +2340,35 @@ function Header({ setView, user, query, setQuery, wishlistCount, menuOpen, onMen
           </button>
         )}
       </div>
+
+      {mobileSearchOpen && (
+        <div className="sm:hidden fixed inset-0 z-[150] flex flex-col" style={{ background: PAGE_BG }}>
+          <div className="flex items-center gap-2 px-4 py-3.5" style={{ borderBottom: `1px solid ${BORDER}` }}>
+            <button onClick={() => setMobileSearchOpen(false)} aria-label="Close search" className="w-9 h-9 rounded-full flex items-center justify-center shrink-0" style={{ background: SURFACE, border: `1px solid ${BORDER}` }}><ArrowLeft size={16} /></button>
+            <div className="flex-1 flex items-center gap-2 rounded-full px-4 py-2.5" style={{ background: SURFACE, border: `1px solid ${BORDER}` }}>
+              <Search size={16} className="text-[#585C66] shrink-0" />
+              <input
+                autoFocus
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") runSearch(); }}
+                placeholder={t("searchPlaceholder")}
+                className="bg-transparent outline-none text-sm text-[#14181F] placeholder:text-[#585C66] flex-1"
+              />
+              {query && <button onClick={() => setQuery("")} aria-label="Clear search"><X size={14} className="text-[#8B8E99]" /></button>}
+            </div>
+          </div>
+          <div className="flex-1 overflow-y-auto">
+            {query.trim().length < 2 ? (
+              <p className="text-xs text-[#8B8E99] text-center py-10 px-6">Start typing to search listings and categories.</p>
+            ) : hasSuggestions ? (
+              suggestionList(() => setMobileSearchOpen(false))
+            ) : (
+              <p className="text-xs text-[#8B8E99] text-center py-10 px-6">No matches for "{query}" yet — try Enter to see full results.</p>
+            )}
+          </div>
+        </div>
+      )}
     </header>
   );
 }
@@ -2490,10 +2629,27 @@ function CategoryView({ categoryId, listings, setView, compareIds, onToggleCompa
   const [sort, setSort] = useState("new");
   const [fieldFilters, setFieldFilters] = useState({});
   const [showMap, setShowMap] = useState(false);
+  const [swipeMode, setSwipeMode] = useState(false);
   const [radiusKm, setRadiusKm] = useState(50);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [saveSearchOpen, setSaveSearchOpen] = useState(false);
   const [searchLabel, setSearchLabel] = useState("");
+  const [toolbarVisible, setToolbarVisible] = useState(true);
+  const lastScrollY = useRef(0);
+  useEffect(() => {
+    lastScrollY.current = window.scrollY;
+    const onScroll = () => {
+      const y = window.scrollY;
+      const goingDown = y > lastScrollY.current + 4;
+      const goingUp = y < lastScrollY.current - 4;
+      if (y < 120) setToolbarVisible(true);
+      else if (goingDown) setToolbarVisible(false);
+      else if (goingUp) setToolbarVisible(true);
+      lastScrollY.current = y;
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
   const geo = useGeolocation();
 
   const catAll = useMemo(() => listings.filter((l) => l.category === categoryId), [listings, categoryId]);
@@ -2540,7 +2696,7 @@ function CategoryView({ categoryId, listings, setView, compareIds, onToggleCompa
   return (
     <div>
       <div className="relative h-44 md:h-56 overflow-hidden" style={{ borderBottom: `1px solid ${BORDER}` }}>
-        <SmartImg src={`https://picsum.photos/seed/cat-${categoryId}/1600/500`} alt="" role="presentation" className="absolute inset-0 w-full h-full object-cover" style={{ filter: "saturate(0.7)" }} />
+        <SmartImg src={catImage(categoryId, "banner-" + categoryId)} alt="" role="presentation" className="absolute inset-0 w-full h-full object-cover" style={{ filter: "saturate(0.7)" }} />
         <div className="absolute inset-0" style={{ background: `linear-gradient(180deg, rgba(20,24,31,.35) 0%, rgba(20,24,31,.75) 100%)` }} />
         <div className="absolute inset-0" style={{ background: `linear-gradient(90deg, ${cat.color}33, transparent 60%)` }} />
         <div className="relative h-full max-w-6xl mx-auto px-4 flex flex-col justify-end pb-6">
@@ -2558,7 +2714,16 @@ function CategoryView({ categoryId, listings, setView, compareIds, onToggleCompa
       </div>
 
       <div className="max-w-6xl mx-auto px-4 py-8 pb-24">
-        <div className="flex items-center justify-between flex-wrap gap-2 mb-5">
+        <div
+          className="flex items-center justify-between flex-wrap gap-2 mb-5 sticky z-30 py-2.5 -mx-4 px-4 transition-transform duration-300"
+          style={{
+            top: 64,
+            background: `${PAGE_BG}F2`,
+            backdropFilter: "blur(8px)",
+            transform: toolbarVisible ? "translateY(0)" : "translateY(-130%)",
+            borderBottom: `1px solid ${toolbarVisible ? BORDER : "transparent"}`,
+          }}
+        >
           <div className="flex items-center gap-2 flex-wrap">
             <button onClick={() => setFiltersOpen(!filtersOpen)} className="flex items-center gap-1.5 text-xs font-bold px-3.5 py-1.5 rounded-full transition"
               style={filtersOpen || activeFilterCount > 0 ? { background: INK, color: "#fff" } : { background: SURFACE, color: "#585C66", border: `1px solid ${BORDER}` }}>
@@ -2571,6 +2736,10 @@ function CategoryView({ categoryId, listings, setView, compareIds, onToggleCompa
             <button onClick={() => setShowMap(!showMap)} className="flex items-center gap-1.5 text-xs font-bold px-3.5 py-1.5 rounded-full transition"
               style={showMap ? { background: INK, color: "#fff" } : { background: SURFACE, color: "#585C66", border: `1px solid ${BORDER}` }}>
               <MapPin size={12} /> {showMap ? "List view" : "Show on map"}
+            </button>
+            <button onClick={() => setSwipeMode(true)} className="flex items-center gap-1.5 text-xs font-bold px-3.5 py-1.5 rounded-full transition"
+              style={{ background: `${GOLD}18`, color: LIME }}>
+              <Sparkles size={12} /> Swipe mode
             </button>
           </div>
           {onSaveSearch && (
@@ -2595,7 +2764,7 @@ function CategoryView({ categoryId, listings, setView, compareIds, onToggleCompa
         )}
 
         {filtersOpen && (
-          <div className="rounded-2xl p-5 mb-6" style={{ background: CARD, border: `1px solid ${BORDER_SOFT}`, boxShadow: CARD_SHADOW }}>
+          <div className="notched p-5 mb-6" style={{ background: CARD, border: `1px solid ${BORDER_SOFT}`, boxShadow: CARD_SHADOW }}>
             <div className="flex items-center justify-between mb-4">
               <span className="text-xs font-bold" style={{ color: "#14181F" }}>Filters</span>
               {activeFilterCount > 0 && <button onClick={clearFilters} className="text-[11px] font-bold" style={{ color: cat.color }}>Clear all</button>}
@@ -2681,11 +2850,19 @@ function CategoryView({ categoryId, listings, setView, compareIds, onToggleCompa
         ) : showMap ? (
           <MapView items={items} setView={setView} myLocation={geo.coords} />
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-            {items.map((ad) => <AdCard key={ad.id} ad={ad} onOpen={(ad) => setView({ name: "detail", ad })} compareIds={compareIds} onToggleCompare={onToggleCompare} wishlistIds={wishlistIds} onToggleWishlist={onToggleWishlist} />)}
-          </div>
+          <>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+              {items.map((ad, i) => (
+                <Reveal key={ad.id} delay={(i % 8) * 60}>
+                  <AdCard ad={ad} onOpen={(ad) => setView({ name: "detail", ad })} compareIds={compareIds} onToggleCompare={onToggleCompare} wishlistIds={wishlistIds} onToggleWishlist={onToggleWishlist} />
+                </Reveal>
+              ))}
+            </div>
+            <EndOfList count={items.length} onBackToTop={() => window.scrollTo({ top: 0, behavior: "smooth" })} />
+          </>
         )}
       </div>
+      {swipeMode && <SwipeView items={items} cat={cat} onClose={() => setSwipeMode(false)} onOpen={(ad) => { setSwipeMode(false); setView({ name: "detail", ad }); }} wishlistIds={wishlistIds} onToggleWishlist={onToggleWishlist} />}
     </div>
   );
 }
@@ -2695,7 +2872,7 @@ function CategoryView({ categoryId, listings, setView, compareIds, onToggleCompa
 /* ------------------------------------------------------------------ */
 
 function Panel({ children, style }) {
-  return <div className="rounded-2xl p-5 md:p-6 mb-5" style={{ background: CARD, border: `1px solid ${BORDER_SOFT}`, boxShadow: CARD_SHADOW, ...style }}>{children}</div>;
+  return <div className="notched p-5 md:p-6 mb-5" style={{ background: CARD, border: `1px solid ${BORDER_SOFT}`, boxShadow: CARD_SHADOW, ...style }}>{children}</div>;
 }
 
 const AMENITY_POOL = [
@@ -2796,6 +2973,114 @@ function AuctionPanel({ ad, cat, user, setAd, setView, showToast, fmt }) {
   );
 }
 
+function SwipeView({ items, cat, onClose, onOpen, wishlistIds, onToggleWishlist }) {
+  const { fmt } = useLang();
+  const [index, setIndex] = useState(0);
+  const [drag, setDrag] = useState({ x: 0, y: 0, active: false });
+  const startRef = useRef({ x: 0, y: 0 });
+  const current = items[index];
+  const next = items[index + 1];
+
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === "Escape") onClose();
+      else if (e.key === "ArrowRight") decide(1);
+      else if (e.key === "ArrowLeft") decide(-1);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [index, items]);
+
+  const decide = (dir) => {
+    if (!current) return;
+    if (dir > 0 && !wishlistIds.includes(current.id)) onToggleWishlist(current);
+    setDrag({ x: dir * 600, y: -40, active: false });
+    setTimeout(() => { setIndex((i) => i + 1); setDrag({ x: 0, y: 0, active: false }); }, 220);
+  };
+
+  const onPointerDown = (e) => {
+    startRef.current = { x: e.clientX, y: e.clientY };
+    setDrag({ x: 0, y: 0, active: true });
+  };
+  const onPointerMove = (e) => {
+    if (!drag.active) return;
+    setDrag({ x: e.clientX - startRef.current.x, y: e.clientY - startRef.current.y, active: true });
+  };
+  const onPointerUp = () => {
+    if (!drag.active) return;
+    if (Math.abs(drag.x) > 110) decide(drag.x > 0 ? 1 : -1);
+    else setDrag({ x: 0, y: 0, active: false });
+  };
+
+  const rotate = drag.x / 18;
+  const likeOpacity = Math.min(1, Math.max(0, drag.x / 100));
+  const skipOpacity = Math.min(1, Math.max(0, -drag.x / 100));
+
+  return (
+    <div className="fixed inset-0 z-[200] flex flex-col" style={{ background: `radial-gradient(ellipse 130% 100% at 50% -10%, #1E2430 0%, ${INK} 60%)` }}>
+      <div className="flex items-center justify-between px-5 py-4 shrink-0">
+        <div>
+          <div className="text-[10px] font-bold uppercase" style={{ color: GOLD, letterSpacing: "0.14em" }}>Swipe mode</div>
+          <div className="text-sm font-bold" style={{ color: "#F7F4EC" }}>{cat.label}</div>
+        </div>
+        <button onClick={onClose} aria-label="Close swipe mode" className="w-10 h-10 rounded-full flex items-center justify-center" style={{ border: `1px solid rgba(247,244,236,.25)`, color: "#F7F4EC" }}><X size={17} /></button>
+      </div>
+
+      <div className="flex-1 flex items-center justify-center px-6 relative overflow-hidden">
+        {!current ? (
+          <div className="text-center">
+            <div className="text-5xl mb-4">✨</div>
+            <p className="text-lg font-bold mb-1" style={{ color: "#F7F4EC", fontFamily: SERIF }}>That's everything</p>
+            <p className="text-sm mb-6" style={{ color: "rgba(247,244,236,.55)" }}>You swiped through all {items.length} listings</p>
+            <button onClick={onClose} className="font-extrabold text-sm px-5 py-2.5 rounded-full" style={{ background: GOLD, color: INK }}>Back to list</button>
+          </div>
+        ) : (
+          <>
+            {next && (
+              <div className="absolute w-full max-w-sm rounded-2xl overflow-hidden" style={{ height: 460, transform: "scale(0.94) translateY(14px)", opacity: 0.6, background: CARD }}>
+                <SmartImg src={next.img} alt="" className="w-full h-full object-cover" />
+              </div>
+            )}
+            <div
+              className="absolute w-full max-w-sm rounded-2xl overflow-hidden cursor-grab active:cursor-grabbing select-none"
+              style={{
+                height: 460, background: CARD,
+                transform: `translate(${drag.x}px, ${drag.y}px) rotate(${rotate}deg)`,
+                transition: drag.active ? "none" : "transform .25s cubic-bezier(.22,1,.36,1)",
+                boxShadow: "0 30px 60px -20px rgba(0,0,0,.5)",
+              }}
+              onPointerDown={onPointerDown}
+              onPointerMove={onPointerMove}
+              onPointerUp={onPointerUp}
+              onPointerLeave={onPointerUp}
+            >
+              <SmartImg src={current.img} alt={current.title} className="w-full h-full object-cover" onClick={() => onOpen(current)} />
+              <span className="absolute top-6 start-6 text-2xl font-black px-3 py-1 rounded-lg" style={{ border: "3px solid #22C55E", color: "#22C55E", opacity: likeOpacity, transform: "rotate(-12deg)", background: "rgba(0,0,0,.3)" }}>SAVE</span>
+              <span className="absolute top-6 end-6 text-2xl font-black px-3 py-1 rounded-lg" style={{ border: "3px solid #F43F5E", color: "#F43F5E", opacity: skipOpacity, transform: "rotate(12deg)", background: "rgba(0,0,0,.3)" }}>SKIP</span>
+              <div className="absolute bottom-0 inset-x-0 p-4" style={{ background: "linear-gradient(0deg, rgba(0,0,0,.75), transparent)" }}>
+                <div className="text-white font-bold text-base mb-0.5 line-clamp-1">{current.title}</div>
+                <div className="flex items-center justify-between">
+                  <span className="text-white/70 text-xs">{current.city}</span>
+                  <span className="text-white font-bold text-sm" style={{ fontFamily: SERIF }}>{current.price ? fmt(current.price) : "Negotiable"}</span>
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+
+      {current && (
+        <div className="flex items-center justify-center gap-5 pb-8 pt-3 shrink-0">
+          <button onClick={() => decide(-1)} aria-label="Skip" className="w-14 h-14 rounded-full flex items-center justify-center" style={{ background: "rgba(247,244,236,.08)", color: "#F43F5E", border: "1px solid rgba(244,63,94,.35)" }}><X size={22} /></button>
+          <span className="text-xs font-bold" style={{ color: "rgba(247,244,236,.4)", fontFamily: "JetBrains Mono" }}>{index + 1} / {items.length}</span>
+          <button onClick={() => decide(1)} aria-label="Save" className="w-14 h-14 rounded-full flex items-center justify-center" style={{ background: "rgba(247,244,236,.08)", color: "#22C55E", border: "1px solid rgba(34,197,94,.35)" }}><Heart size={22} /></button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function NotFoundView({ setView }) {
   return (
     <div className="max-w-md mx-auto px-4 py-24 text-center">
@@ -2805,6 +3090,84 @@ function NotFoundView({ setView }) {
       <div className="flex items-center justify-center gap-2">
         <button onClick={() => setView({ name: "home" })} className="font-extrabold text-sm px-5 py-2.5 rounded-full" style={{ background: LIME, color: "#fff" }}>Back to home</button>
         <button onClick={() => setView({ name: "support" })} className="font-bold text-sm px-5 py-2.5 rounded-full" style={{ border: `1px solid ${BORDER}`, color: "#14181F" }}>Contact us</button>
+      </div>
+    </div>
+  );
+}
+
+function EndOfList({ count, onBackToTop }) {
+  return (
+    <Reveal className="text-center pt-14 pb-6">
+      <div className="flex items-center justify-center gap-3 mb-4">
+        <span className="w-12 h-px" style={{ background: BORDER }} />
+        <span className="text-lg">👋</span>
+        <span className="w-12 h-px" style={{ background: BORDER }} />
+      </div>
+      <p className="text-sm font-bold text-[#14181F] mb-1">That's all {count} listings</p>
+      <p className="text-xs text-[#585C66] mb-5">You've reached the end — nothing more to see here (yet).</p>
+      <button onClick={onBackToTop} className="inline-flex items-center gap-1.5 text-xs font-bold px-4 py-2 rounded-full" style={{ border: `1px solid ${BORDER}`, color: "#14181F" }}>
+        <ArrowUp size={12} /> Back to top
+      </button>
+    </Reveal>
+  );
+}
+
+function LoanCalculator({ price, color, fmt }) {
+  const [downPct, setDownPct] = useState(20);
+  const [years, setYears] = useState(5);
+  const [rate, setRate] = useState(6.5);
+
+  const downPayment = price * (downPct / 100);
+  const principal = price - downPayment;
+  const monthlyRate = rate / 100 / 12;
+  const numPayments = years * 12;
+  const monthly = monthlyRate === 0
+    ? principal / numPayments
+    : (principal * monthlyRate * Math.pow(1 + monthlyRate, numPayments)) / (Math.pow(1 + monthlyRate, numPayments) - 1);
+  const totalPaid = monthly * numPayments + downPayment;
+  const totalInterest = totalPaid - price;
+
+  return (
+    <div className="notched p-5 mb-6" style={{ background: CARD, border: `1px solid ${BORDER_SOFT}`, boxShadow: CARD_SHADOW }}>
+      <div className="flex items-center justify-between mb-1">
+        <Eyebrow color={color}>Financing estimate</Eyebrow>
+        <span title="An illustrative calculation — actual loan terms depend on your lender" className="text-[9px] font-bold px-2 py-0.5 rounded-full" style={{ background: SURFACE, color: "#8B8E99" }}>Estimate</span>
+      </div>
+      <p className="text-[11px] text-[#585C66] mb-4">See roughly what a monthly payment could look like — not a loan offer.</p>
+
+      <div className="space-y-4 mb-5">
+        <div>
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-xs font-bold text-[#585C66]">Down payment</span>
+            <span className="text-xs font-bold" style={{ color, fontFamily: "JetBrains Mono" }}>{downPct}% ({fmt(downPayment)})</span>
+          </div>
+          <input type="range" min={0} max={80} step={5} value={downPct} onChange={(e) => setDownPct(Number(e.target.value))} className="w-full" style={{ accentColor: color }} />
+        </div>
+        <div>
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-xs font-bold text-[#585C66]">Loan term</span>
+            <span className="text-xs font-bold" style={{ color, fontFamily: "JetBrains Mono" }}>{years} {years === 1 ? "year" : "years"}</span>
+          </div>
+          <input type="range" min={1} max={30} step={1} value={years} onChange={(e) => setYears(Number(e.target.value))} className="w-full" style={{ accentColor: color }} />
+        </div>
+        <div>
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-xs font-bold text-[#585C66]">Interest rate (annual)</span>
+            <span className="text-xs font-bold" style={{ color, fontFamily: "JetBrains Mono" }}>{rate.toFixed(1)}%</span>
+          </div>
+          <input type="range" min={0} max={20} step={0.1} value={rate} onChange={(e) => setRate(Number(e.target.value))} className="w-full" style={{ accentColor: color }} />
+        </div>
+      </div>
+
+      <div className="rounded-xl p-4" style={{ background: `${color}0f` }}>
+        <div className="flex items-baseline justify-between mb-3">
+          <span className="text-xs font-bold text-[#585C66]">Estimated monthly payment</span>
+          <span className="text-2xl font-bold" style={{ color, fontFamily: SERIF }}>{fmt(monthly)}<span className="text-xs font-normal text-[#8B8E99]">/mo</span></span>
+        </div>
+        <div className="grid grid-cols-2 gap-3 text-[11px]">
+          <div><span className="text-[#8B8E99] block">Total interest</span><span className="font-bold text-[#14181F]" style={{ fontFamily: "JetBrains Mono" }}>{fmt(totalInterest)}</span></div>
+          <div><span className="text-[#8B8E99] block">Total paid</span><span className="font-bold text-[#14181F]" style={{ fontFamily: "JetBrains Mono" }}>{fmt(totalPaid)}</span></div>
+        </div>
       </div>
     </div>
   );
@@ -3007,6 +3370,7 @@ function DetailView({ ad: initialAd, listings = [], setView, user, showToast, co
           )}
 
           {ad.price > 0 && <PriceTrendChart ad={ad} color={cat.color} fmt={fmt} />}
+          {ad.price > 0 && (ad.category === "realestate" || ad.category === "vehicles") && <LoanCalculator price={ad.price} color={cat.color} fmt={fmt} />}
 
           <Panel>
             <Eyebrow color={cat.color}>Details</Eyebrow>
@@ -3258,7 +3622,7 @@ function CompareBar({ compareIds, listings, setView, clear }) {
   if (ads.length === 0) return null;
   const cat = catOf(ads[0].category);
   return (
-    <div className="fixed start-1/2 -translate-x-1/2 z-40 flex items-center gap-3 rounded-full ps-2 pe-4 py-2 shadow-2xl" style={{ bottom: 96, background: SURFACE, border: `1px solid ${cat.color}77` }}>
+    <div className="fixed start-1/2 -translate-x-1/2 z-[45] flex items-center gap-3 rounded-full ps-2 pe-4 py-2 shadow-2xl" style={{ bottom: 96, background: SURFACE, border: `1px solid ${cat.color}77` }}>
       <div className="flex -space-x-2.5 space-x-reverse">
         {ads.map((ad) => <img key={ad.id} src={ad.img} alt={ad.title || ""} className="w-8 h-8 rounded-full object-cover" style={{ border: `2px solid ${SURFACE}` }} />)}
       </div>
@@ -3426,7 +3790,7 @@ function PostAdView({ setView, user, onPublish, onUpdate, editingAd = null, list
       setSubmitting(false);
       setDone(true);
       const uploaded = images.map((im) => im.dataUrl);
-      const finalImages = uploaded.length ? uploaded : [`https://picsum.photos/seed/${Date.now()}/800/560`, `https://picsum.photos/seed/${Date.now()}b/800/560`, `https://picsum.photos/seed/${Date.now()}c/800/560`];
+      const finalImages = uploaded.length ? uploaded : [catImage(category, "new-" + Date.now()), catImage(category, "new-" + Date.now() + "b")];
       if (isEditing) {
         onUpdate(editingAd.id, {
           category, title: form.title, price: Number(form.price) || 0,
@@ -3958,6 +4322,32 @@ function AdminView({ pendingListings, setView, onDecide }) {
 /*  Seller profile                                                      */
 /* ------------------------------------------------------------------ */
 
+function SellerBadges({ ads, avgRating, totalReviews, cats, isStorefront }) {
+  const badges = [
+    ads.length >= 3 && { icon: Package, label: "Active lister", desc: `${ads.length}+ listings live` },
+    ads.length >= 10 && { icon: Zap, label: "Power seller", desc: "10+ active listings" },
+    totalReviews >= 3 && avgRating >= 4.5 && { icon: Star, label: "Highly rated", desc: `${avgRating.toFixed(1)} average rating` },
+    cats.length >= 3 && { icon: Sparkles, label: "Multi-category", desc: `Sells across ${cats.length} categories` },
+    isStorefront && { icon: BadgeCheck, label: "Dedicated storefront", desc: "Has a branded showcase page" },
+  ].filter(Boolean);
+
+  if (badges.length === 0) return null;
+
+  return (
+    <div className="mb-8">
+      <Eyebrow>Badges</Eyebrow>
+      <div className="flex flex-wrap gap-2.5">
+        {badges.map((b) => (
+          <div key={b.label} title={b.desc} className="flex items-center gap-2 rounded-full pe-3.5 ps-1.5 py-1.5" style={{ background: `${GOLD}14`, border: `1px solid ${GOLD}44` }}>
+            <span className="w-6 h-6 rounded-full flex items-center justify-center shrink-0" style={{ background: GOLD, color: INK }}><b.icon size={12} /></span>
+            <span className="text-xs font-bold" style={{ color: LIME }}>{b.label}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function SellerView({ owner, listings, setView, compareIds, onToggleCompare, wishlistIds, onToggleWishlist }) {
   const ads = listings.filter((l) => l.owner === owner);
   const reviewed = ads.filter((a) => a.reviews?.count > 0);
@@ -3976,7 +4366,7 @@ function SellerView({ owner, listings, setView, compareIds, onToggleCompare, wis
 
       {isStorefront && (
         <div className="relative h-32 md:h-40 rounded-2xl overflow-hidden mb-[-56px]" style={{ border: `1px solid ${BORDER}` }}>
-          <SmartImg src={`https://picsum.photos/seed/${owner}-banner/1200/300`} alt="" role="presentation" className="w-full h-full object-cover" />
+          <SmartImg src={catImage(ads[0]?.category || "goods", owner + "-banner")} alt="" role="presentation" className="w-full h-full object-cover" />
           <div className="absolute inset-0" style={{ background: `linear-gradient(180deg, ${bannerCat?.color || LIME}22, rgba(20,24,31,.45))` }} />
           <span className="absolute top-3 left-3 text-[10px] font-extrabold px-2.5 py-1 rounded-full flex items-center gap-1" style={{ background: LIME, color: INK }}>
             <Sparkles size={9} /> Dedicated showcase
@@ -4017,6 +4407,8 @@ function SellerView({ owner, listings, setView, compareIds, onToggleCompare, wis
           )}
         </div>
       </div>
+
+      <SellerBadges ads={ads} avgRating={avgRating} totalReviews={totalReviews} cats={cats} isStorefront={isStorefront} />
 
       <Eyebrow>listings {owner}</Eyebrow>
       {cats.length > 1 && (
@@ -4214,12 +4606,123 @@ function VerificationCard({ user, onSave, showToast }) {
   );
 }
 
+function SpentaWrapped({ user, listings, onClose }) {
+  const active = listings.filter((l) => l.status === "approved");
+  const seed = hashId(user.email || user.name);
+  const totalViews = active.reduce((sum, l) => sum + (8 + (hashId(l.id) % 40) + active.length * 3), 0);
+  const topListing = [...active].sort((a, b) => hashId(b.id) % 50 - hashId(a.id) % 50)[0];
+  const categoriesUsed = new Set(active.map((l) => l.category)).size;
+  const memberDays = 30 + (seed % 300);
+
+  const stats = [
+    { label: "Total listing views", value: totalViews.toLocaleString(), icon: Eye },
+    { label: "Active listings", value: active.length, icon: Package },
+    { label: "Categories you've sold in", value: categoriesUsed, icon: Sparkles },
+    { label: "Days on SPENTA", value: memberDays, icon: Clock },
+  ];
+
+  return (
+    <div className="fixed inset-0 z-[250] flex items-center justify-center p-4" style={{ background: "rgba(8,9,13,.75)" }} onClick={onClose}>
+      <div
+        className="w-full max-w-sm rounded-3xl overflow-hidden relative"
+        style={{ background: `radial-gradient(ellipse 140% 100% at 20% -10%, #1E2430 0%, ${INK} 65%)`, boxShadow: "0 50px 100px -20px rgba(0,0,0,.6)", animation: "popIn .3s cubic-bezier(.22,1,.36,1)" }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <span className="lot-corner lot-corner-tl" style={{ borderColor: GOLD, opacity: 1, top: 18, insetInlineStart: 18 }} />
+        <span className="lot-corner lot-corner-tr" style={{ borderColor: GOLD, opacity: 1, top: 18, insetInlineEnd: 18 }} />
+        <span className="lot-corner lot-corner-bl" style={{ borderColor: GOLD, opacity: 1, bottom: 18, insetInlineStart: 18 }} />
+        <span className="lot-corner lot-corner-br" style={{ borderColor: GOLD, opacity: 1, bottom: 18, insetInlineEnd: 18 }} />
+
+        <button onClick={onClose} aria-label="Close" className="absolute top-5 end-5 w-8 h-8 rounded-full flex items-center justify-center z-10" style={{ background: "rgba(247,244,236,.1)", color: "#F7F4EC" }}><X size={15} /></button>
+
+        <div className="p-8 pt-12 text-center">
+          <div className="text-[10px] font-bold uppercase mb-2" style={{ color: GOLD, letterSpacing: "0.2em" }}>SPENTA Wrapped</div>
+          <h2 className="text-2xl font-bold mb-1" style={{ color: "#F7F4EC", fontFamily: SERIF }}>{user.name}</h2>
+          <p className="text-xs mb-1" style={{ color: "rgba(247,244,236,.5)" }}>Your seller story so far</p>
+          <p className="text-[9px] font-bold px-2 py-0.5 rounded-full inline-block mb-7" style={{ background: "rgba(247,244,236,.08)", color: "rgba(247,244,236,.4)" }}>Demo data</p>
+
+          <div className="grid grid-cols-2 gap-3 mb-7">
+            {stats.map((s) => (
+              <div key={s.label} className="rounded-xl p-4 text-start" style={{ background: "rgba(247,244,236,.06)", border: `1px solid rgba(229,185,78,.2)` }}>
+                <s.icon size={15} color={GOLD} className="mb-2" />
+                <div className="text-2xl font-bold mb-0.5" style={{ color: "#F7F4EC", fontFamily: SERIF }}>{s.value}</div>
+                <div className="text-[10px] leading-tight" style={{ color: "rgba(247,244,236,.5)" }}>{s.label}</div>
+              </div>
+            ))}
+          </div>
+
+          {topListing && (
+            <div className="rounded-xl p-4 mb-7 text-start flex items-center gap-3" style={{ background: "rgba(247,244,236,.06)", border: `1px solid rgba(229,185,78,.2)` }}>
+              <SmartImg src={topListing.img} alt="" className="w-12 h-12 rounded-lg object-cover shrink-0" />
+              <div className="min-w-0">
+                <div className="text-[9px] font-bold uppercase mb-0.5" style={{ color: GOLD, letterSpacing: "0.1em" }}>Your top listing</div>
+                <div className="text-xs font-bold truncate" style={{ color: "#F7F4EC" }}>{topListing.title}</div>
+              </div>
+            </div>
+          )}
+
+          <p className="text-[10px] mb-5" style={{ color: "rgba(247,244,236,.35)" }}>Take a screenshot to save or share this card ✨</p>
+          <button onClick={onClose} className="w-full font-extrabold text-sm py-3 rounded-full" style={{ background: GOLD, color: INK }}>Done</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ReferralCard({ user, showToast }) {
+  const [copied, setCopied] = useState(false);
+  const refCode = String(hashId(user.email || user.name)).slice(0, 8);
+  const refLink = `https://spenta.market/?ref=${refCode}`;
+
+  const copyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(refLink);
+      setCopied(true);
+      showToast("Referral link copied");
+      setTimeout(() => setCopied(false), 2000);
+    } catch (e) {
+      showToast("Couldn't copy — select and copy the link manually");
+    }
+  };
+
+  const share = async () => {
+    if (navigator.share) {
+      try { await navigator.share({ title: "Join me on SPENTA", text: "Check out SPENTA — the global marketplace for everything.", url: refLink }); }
+      catch (e) {}
+    } else {
+      copyLink();
+    }
+  };
+
+  return (
+    <div className="notched p-5 mb-8" style={{ background: `radial-gradient(ellipse 130% 100% at 15% -10%, #1E2430 0%, ${INK} 65%)` }}>
+      <div className="flex items-center gap-3 mb-3">
+        <span className="w-10 h-10 rounded-full flex items-center justify-center shrink-0" style={{ background: "rgba(229,185,78,.15)", color: GOLD }}><Users size={18} /></span>
+        <div>
+          <div className="text-sm font-bold" style={{ color: "#F7F4EC" }}>Invite friends to SPENTA</div>
+          <div className="text-[11px]" style={{ color: "rgba(247,244,236,.5)" }}>Share your link — when a friend joins, you'll both earn a badge</div>
+        </div>
+      </div>
+      <div className="flex items-center gap-2 rounded-xl p-1 mb-3" style={{ background: "rgba(247,244,236,.06)", border: `1px solid rgba(247,244,236,.12)` }}>
+        <span className="flex-1 text-xs px-3 py-2 truncate" style={{ color: "rgba(247,244,236,.75)", fontFamily: "JetBrains Mono", direction: "ltr" }}>{refLink}</span>
+        <button onClick={copyLink} className="shrink-0 flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-lg" style={{ background: copied ? "#22C55E" : GOLD, color: INK }}>
+          {copied ? <Check size={13} /> : <Copy size={13} />} {copied ? "Copied" : "Copy"}
+        </button>
+      </div>
+      <button onClick={share} className="w-full flex items-center justify-center gap-1.5 text-xs font-bold py-2.5 rounded-lg" style={{ border: `1px solid rgba(247,244,236,.2)`, color: "#F7F4EC" }}>
+        <Share2 size={13} /> Share invite link
+      </button>
+    </div>
+  );
+}
+
 function Dashboard({ user, setUser, listings, setView, compareIds, onToggleCompare, wishlistIds, onToggleWishlist, onSaveProfile, showToast, onDelete, onRenew }) {
   const mine = listings.filter((l) => l.owner === user.name);
   const approvedActive = mine.filter((l) => l.status === "approved" && !isExpired(l));
   const approvedExpired = mine.filter((l) => l.status === "approved" && isExpired(l));
   const pending = mine.filter((l) => l.status === "pending");
   const [confirmDelete, setConfirmDelete] = useState(null);
+  const [wrappedOpen, setWrappedOpen] = useState(false);
   const stats = [
     { label: "Active listing", value: approvedActive.length, icon: ShieldCheck, color: LIME },
     { label: "Pending review", value: pending.length, icon: Clock, color: "#EAB308" },
@@ -4245,11 +4748,17 @@ function Dashboard({ user, setUser, listings, setView, compareIds, onToggleCompa
           <div className="text-[10px] font-bold uppercase mb-1.5" style={{ color: LIME, letterSpacing: "0.14em" }}>Welcome back</div>
           <div className="text-[#14181F] font-bold text-2xl" style={{ fontFamily: SERIF }}>{user.name}</div>
         </div>
-        <button onClick={() => { setUser(null); setView({ name: "home" }); }} className="flex items-center gap-1.5 text-xs font-bold px-3.5 py-2 rounded-full" style={{ border: `1px solid ${BORDER}`, color: "#585C66" }}><LogOut size={13} /> Log out</button>
+        <div className="flex items-center gap-2">
+          <button onClick={() => setWrappedOpen(true)} className="flex items-center gap-1.5 text-xs font-extrabold px-3.5 py-2 rounded-full" style={{ background: `linear-gradient(135deg, ${GOLD}, #B8892E)`, color: INK }}><Sparkles size={13} /> Your SPENTA Wrapped</button>
+          <button onClick={() => { setUser(null); setView({ name: "home" }); }} className="flex items-center gap-1.5 text-xs font-bold px-3.5 py-2 rounded-full" style={{ border: `1px solid ${BORDER}`, color: "#585C66" }}><LogOut size={13} /> Log out</button>
+        </div>
       </div>
+
+      {wrappedOpen && <SpentaWrapped user={user} listings={mine} onClose={() => setWrappedOpen(false)} />}
 
       <VerificationCard user={user} onSave={onSaveProfile} showToast={showToast} />
       <ProfileEditor user={user} onSave={onSaveProfile} />
+      <ReferralCard user={user} showToast={showToast} />
 
       <div className="grid sm:grid-cols-3 gap-px mb-12" style={{ background: BORDER_SOFT, border: `1px solid ${BORDER_SOFT}` }}>
         {stats.map((s, i) => (
@@ -4267,6 +4776,15 @@ function Dashboard({ user, setUser, listings, setView, compareIds, onToggleCompa
         ))}
       </div>
 
+      {approvedActive.length > 0 && (
+        <SellerBadges
+          ads={approvedActive}
+          avgRating={approvedActive.reduce((s, a) => s + (a.reviews?.avg || 0) * (a.reviews?.count || 0), 0) / Math.max(1, approvedActive.reduce((s, a) => s + (a.reviews?.count || 0), 0))}
+          totalReviews={approvedActive.reduce((s, a) => s + (a.reviews?.count || 0), 0)}
+          cats={[...new Set(approvedActive.map((a) => a.category))]}
+          isStorefront={approvedActive.length >= 3}
+        />
+      )}
       {approvedActive.length > 0 && <DashboardInsights listings={approvedActive} />}
 
       <div className="flex items-center justify-between mb-5">
@@ -4557,7 +5075,7 @@ const MAGAZINE_ARTICLES = [
     tag: "Market trend",
     title: "The Global Marketplace in 2026: Why Borders No Longer Stop a Deal",
     excerpt: "How platforms like SPENTA have reduced the distance between a seller in Istanbul and a buyer in Vancouver to a few clicks.",
-    img: "https://picsum.photos/seed/mag1/900/600",
+    img: editorialImage("mag1"),
     paragraphs: [
       "Until just a few years ago, buying a car from another country or renting a home in a city we'd never seen felt complicated and risky. Today, with more transparent pricing, identity verification systems, and direct contact between buyers and sellers, that distance has shrunk dramatically.",
       "What sets today's global marketplace apart from a decade ago is structured trust — not blind trust. When every listing is reviewed before publishing and every seller has a transparent score, the risk of dealing with a stranger on the other side of the world drops significantly.",
@@ -4569,7 +5087,7 @@ const MAGAZINE_ARTICLES = [
     tag: "Buying guide",
     title: "7 Tips for a Safe Deal in an Online Marketplace",
     excerpt: "Before you send the first dollar, go through this short checklist.",
-    img: "https://picsum.photos/seed/mag2/900/600",
+    img: editorialImage("mag2"),
     paragraphs: [
       "1. Always talk to the seller through the platform's in-app chat before any financial commitment — Conversations outside the platform usually can't be tracked.",
       "2. Prioritize verified listings and sellers with a transparent trust score; these scores are calculated from clear criteria like identity and phone verification.",
@@ -4583,7 +5101,7 @@ const MAGAZINE_ARTICLES = [
     tag: "Selling guide",
     title: "Behind a Successful Listing: How to Write One People Actually See",
     excerpt: "The difference between a listing that sells in a day and one that sits unanswered for weeks usually comes down to the details.",
-    img: "https://picsum.photos/seed/mag3/900/600",
+    img: editorialImage("mag3"),
     paragraphs: [
       "A precise, specific title is half the job. Instead of «Apartment for sale», write it «New two-bedroom apartment near the metro, Istanbul» — Key details are what actually surfaces in search.",
       "Clear, plentiful photos build trust. Listings with several photos from different angles noticeably get more views and messages.",
@@ -4594,9 +5112,9 @@ const MAGAZINE_ARTICLES = [
   {
     id: "sellers-spotlight",
     tag: "About",
-    title: "Conversations with top sellers SPENTA: From Tehran to Vancouver",
+    title: "SPENTA Conversations with Top Sellers: From Tehran to Vancouver",
     excerpt: "Several active sellers shared their experience of selling in a truly global marketplace.",
-    img: "https://picsum.photos/seed/mag4/900/600",
+    img: editorialImage("mag4"),
     paragraphs: [
       "For many active sellers on SPENTA, the most exciting part is reaching buyers they'd never reach in a local market — From a car seller in Dubai who found his buyer in London, to a property owner in Vancouver who found her tenant across the ocean.",
       "The common thread in all these experiences? Patience in building a reputation. Trust scores and positive reviews aren't built overnight, but once they are, they dramatically speed up the sales cycle.",
@@ -4919,10 +5437,10 @@ function FloatingButtons({ setView }) {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
   return (
-    <div className="fixed bottom-20 sm:bottom-5 inset-x-0 z-40 flex items-center justify-end sm:justify-between px-5 pointer-events-none gap-3">
+    <div className="fixed bottom-20 sm:bottom-5 inset-x-0 z-50 flex items-center justify-end sm:justify-between px-5 pointer-events-none gap-3">
       <div className="hidden sm:block" />
       <button onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} className="pointer-events-auto w-11 h-11 rounded-full flex items-center justify-center shadow-2xl transition"
-        style={{ background: showTop ? PAPER : `${SURFACE}CC`, color: showTop ? INK : "#D8D2C0", border: `1px solid ${BORDER}`, opacity: showTop ? 1 : 0.5 }} aria-label="Back to top"><ArrowUp size={18} /></button>
+        style={{ background: showTop ? PAPER : `${INK}CC`, color: showTop ? INK : "#F7F4EC", border: `1px solid ${BORDER}`, opacity: showTop ? 1 : 0.85 }} aria-label="Back to top"><ArrowUp size={18} /></button>
       <button onClick={() => setView({ name: "support" })} className="pointer-events-auto flex items-center gap-2 font-extrabold text-sm px-4 py-3 rounded-full shadow-2xl" style={{ background: SURFACE, color: INK, border: `1px solid ${BORDER}` }}>
         <LifeBuoy size={17} style={{ color: LIME }} /><span className="hidden sm:inline">Support</span>
       </button>
@@ -4952,8 +5470,8 @@ function CookieConsentBanner({ setView }) {
   };
   if (!visible) return null;
   return (
-    <div className="fixed bottom-0 inset-x-0 z-50 p-3 sm:p-4" dir={lang === "fa" ? "rtl" : "ltr"}>
-      <div className="max-w-3xl mx-auto rounded-2xl p-4 flex flex-col sm:flex-row items-center gap-3" style={{ background: INK, color: "#F7F4EC", boxShadow: "0 -10px 28px -14px rgba(0,0,0,.35)" }}>
+    <div className="fixed bottom-0 inset-x-0 z-50 p-3 sm:p-4 pointer-events-none" dir={lang === "fa" ? "rtl" : "ltr"}>
+      <div className="max-w-3xl mx-auto rounded-2xl p-4 flex flex-col sm:flex-row items-center gap-3 pointer-events-auto" style={{ background: INK, color: "#F7F4EC", boxShadow: "0 -10px 28px -14px rgba(0,0,0,.35)" }}>
         <Cookie size={20} className="shrink-0" style={{ color: GOLD }} />
         <p className="text-[12.5px] leading-relaxed flex-1">
           We use cookies to make the site work better. By continuing to use SPENTA, you agree
@@ -4980,8 +5498,8 @@ function PwaInstallBanner() {
     try { promptEvent.prompt(); await promptEvent.userChoice; } catch (e) {}
   };
   return (
-    <div className="fixed bottom-20 sm:bottom-5 inset-x-0 z-50 px-3 sm:px-4" dir={lang === "fa" ? "rtl" : "ltr"}>
-      <div className="max-w-md mx-auto rounded-2xl p-3.5 flex items-center gap-3" style={{ background: CARD, border: `1px solid ${BORDER}`, boxShadow: CARD_SHADOW }}>
+    <div className="fixed bottom-20 sm:bottom-5 inset-x-0 z-50 px-3 sm:px-4 pointer-events-none" dir={lang === "fa" ? "rtl" : "ltr"}>
+      <div className="max-w-md mx-auto rounded-2xl p-3.5 flex items-center gap-3 pointer-events-auto" style={{ background: CARD, border: `1px solid ${BORDER}`, boxShadow: CARD_SHADOW }}>
         <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: LIME }}><Download size={18} color={INK} /></div>
         <div className="flex-1 min-w-0">
           <div className="text-[13px] font-extrabold text-[#14181F]">SPENTA Install</div>
@@ -5037,7 +5555,7 @@ function CommandPalette({ open, onClose, setView, user, themeMode, onToggleTheme
   if (!open) return null;
   return (
     <div role="dialog" aria-modal="true" aria-label="Command palette" className="fixed inset-0 z-[300] flex items-start justify-center pt-24 px-4" style={{ background: "rgba(8,9,13,.6)" }} onClick={onClose}>
-      <div className="w-full max-w-lg rounded-2xl overflow-hidden" style={{ background: CARD, boxShadow: "0 40px 80px -20px rgba(0,0,0,.5)", animation: "popIn .18s ease" }} onClick={(e) => e.stopPropagation()}>
+      <div className="w-full max-w-lg notched overflow-hidden" style={{ background: CARD, boxShadow: "0 40px 80px -20px rgba(0,0,0,.5)", animation: "popIn .18s ease" }} onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center gap-3 px-4 py-3.5" style={{ borderBottom: `1px solid ${BORDER}` }}>
           <Search size={16} className="text-[#585C66] shrink-0" />
           <input ref={inputRef} value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Type a command or search…" className="flex-1 bg-transparent outline-none text-sm text-[#14181F]" />
@@ -5325,21 +5843,23 @@ function AppInner() {
 
   return (
     <LangContext.Provider value={{ lang, setLang, t, currency, setCurrency, fmt }}>
-    <div dir={lang === "fa" ? "rtl" : "ltr"} lang={lang} className={`min-h-screen flex flex-col ${themeMode === "dark" ? "theme-dark" : ""}`} style={{ background: PAGE_BG, fontFamily: lang === "fa" ? "Vazirmatn" : "Inter, Vazirmatn, sans-serif", color: INK }}>
+    <div dir={lang === "fa" ? "rtl" : "ltr"} lang={lang} className="min-h-screen flex flex-col" style={{ background: PAGE_BG, fontFamily: lang === "fa" ? "Vazirmatn" : "Inter, Vazirmatn, sans-serif", color: INK }}>
       <style>{`
         ${FONT_IMPORT}
         * { box-sizing: border-box; }
-        body { margin: 0; }
+        html, body { margin: 0; overflow-x: hidden; max-width: 100%; }
         ::selection { background: ${LIME}; color: ${INK}; }
         @keyframes fadeIn { from { opacity:0; transform: translate(-50%, 8px);} to {opacity:1; transform: translate(-50%,0);} }
         @keyframes popIn { from { opacity:0; transform: scale(.6);} to {opacity:1; transform: scale(1);} }
-        @keyframes dirRow { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes dirRow { from { opacity: 0; } to { opacity: 1; } }
         .dual-range { position: absolute; inset-inline: 0; width: 100%; height: 6px; background: transparent; pointer-events: none; -webkit-appearance: none; appearance: none; margin: 0; }
         .dual-range::-webkit-slider-thumb { pointer-events: auto; -webkit-appearance: none; appearance: none; width: 16px; height: 16px; border-radius: 50%; background: #fff; border: 3px solid currentColor; cursor: pointer; box-shadow: 0 1px 4px rgba(0,0,0,.3); }
         .dual-range::-moz-range-thumb { pointer-events: auto; width: 16px; height: 16px; border-radius: 50%; background: #fff; border: 3px solid currentColor; cursor: pointer; box-shadow: 0 1px 4px rgba(0,0,0,.3); }
         .dual-range::-webkit-slider-runnable-track { background: transparent; }
         .dual-range::-moz-range-track { background: transparent; }
         .lot-corner { position: absolute; width: 14px; height: 14px; border-style: solid; border-width: 0; z-index: 5; pointer-events: none; transition: opacity .3s ease; }
+        .notched { clip-path: polygon(0 0, calc(100% - 18px) 0, 100% 18px, 100% 100%, 18px 100%, 0 calc(100% - 18px)); }
+        .notched-sm { clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px)); }
         .lot-corner-tl { top: 6px; inset-inline-start: 6px; border-top-width: 2px; border-inline-start-width: 2px; }
         .lot-corner-tr { top: 6px; inset-inline-end: 6px; border-top-width: 2px; border-inline-end-width: 2px; }
         .lot-corner-bl { bottom: 6px; inset-inline-start: 6px; border-bottom-width: 2px; border-inline-start-width: 2px; }
@@ -5390,7 +5910,7 @@ function AppInner() {
         @media (min-width: 1024px) { .masonry { column-count: 5; } }
         .masonry-item { break-inside: avoid; margin-bottom: 16px; }
 
-        @keyframes pageFadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes pageFadeIn { from { opacity: 0; } to { opacity: 1; } }
         @keyframes heroFloat { 0%, 100% { margin-top: 0px; } 50% { margin-top: -10px; } }
         .hero-float { animation: heroFloat 4.5s ease-in-out infinite; }
         @keyframes splashDot { 0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; } 40% { transform: scale(1); opacity: 1; } }
@@ -5419,15 +5939,19 @@ function AppInner() {
         .theme-dark img, .theme-dark iframe, .theme-dark canvas { filter: invert(1) hue-rotate(180deg); }
       `}</style>
 
-      <div className="no-print">
-        <Header setView={setView} user={user} query={query} setQuery={setQuery} wishlistCount={wishlistIds.length} menuOpen={menuOpen} onMenuClick={() => setMenuOpen((v) => !v)} newMatchesCount={newMatchesCount} themeMode={themeMode} onToggleTheme={() => setThemeMode((v) => (v === "light" ? "dark" : "light"))} savedSearches={savedSearches} recomputeMatches={recomputeMatches} onOpenSearch={markSearchSeen} listings={approvedListings} onOpenPalette={() => setPaletteOpen(true)} />
-        <Ticker listings={approvedListings} setView={setView} />
+      <div className={`flex-1 flex flex-col ${themeMode === "dark" ? "theme-dark" : ""}`}>
+        <div className="no-print">
+          <Header setView={setView} user={user} query={query} setQuery={setQuery} wishlistCount={wishlistIds.length} menuOpen={menuOpen} onMenuClick={() => setMenuOpen((v) => !v)} newMatchesCount={newMatchesCount} themeMode={themeMode} onToggleTheme={() => setThemeMode((v) => (v === "light" ? "dark" : "light"))} savedSearches={savedSearches} recomputeMatches={recomputeMatches} onOpenSearch={markSearchSeen} listings={approvedListings} onOpenPalette={() => setPaletteOpen(true)} />
+          <Ticker listings={approvedListings} setView={setView} />
+        </div>
+        <main className="flex-1 pb-16 sm:pb-0">
+          <div key={view.name + (view.category || "") + (view.ad?.id || "") + (view.owner || "")} className="page-transition">{body}</div>
+        </main>
+        <div className="no-print">
+          <Footer setView={setView} />
+        </div>
       </div>
-      <main className="flex-1 pb-16 sm:pb-0">
-        <div key={view.name + (view.category || "") + (view.ad?.id || "") + (view.owner || "")} className="page-transition">{body}</div>
-      </main>
       <div className="no-print">
-        <Footer setView={setView} />
         <Toast text={toast} />
         <CompareBar compareIds={compareIds} listings={listings} setView={setView} clear={() => setCompareIds([])} />
         <FloatingButtons setView={setView} />
@@ -5453,11 +5977,6 @@ export default function App() {
   );
 }
 
-// ---------------------------------------------------------------------
-// window.storage polyfill (localStorage-backed) — see spenta-app/src/main.jsx
-// for the full explanation. Needed because this file was built for the
-// Claude Artifacts runtime, which provides window.storage natively.
-// ---------------------------------------------------------------------
 if (typeof window !== "undefined" && !window.storage) {
   const PREFIX = "spenta:";
   const fullKey = (key, shared) => `${PREFIX}${shared ? "shared:" : "private:"}${key}`;
